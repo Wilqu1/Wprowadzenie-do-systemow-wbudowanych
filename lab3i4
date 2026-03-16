@@ -16,11 +16,11 @@ def calculate_m_m_s_s_basic(l_o, l_h, mu, S):
     l_o: intensywność nowych połączeń, l_h: intensywność handoverów,
     mu: intensywność obsługi (1/średni czas rozmowy), S: liczba kanałów.
     """
-    l_total = l_o + l_h  # Całkowity ruch wpadający do systemu
-    # Mianownik wzoru Erlanga: suma stanów od 0 do S (normalizacja)
+    l_total = l_o + l_h  # Całkowity ruch wpadający do systemu (suma zgłoszeń)
+    # Mianownik wzoru Erlanga: suma stanów od 0 do S (normalizacja prawdopodobieństw)
     denominator = sum([(l_total ** i) / (math.factorial(i) * (mu ** i)) for i in range(int(S) + 1)])
-    p0 = 1 / denominator  # Prawdopodobieństwo, że system jest pusty
-    # Prawdopodobieństwo blokady (wszystkie kanały zajęte)
+    p0 = 1 / denominator  # Prawdopodobieństwo, że system jest całkowicie pusty
+    # Prawdopodobieństwo blokady (wszystkie kanały zajęte - stan S)
     return ((l_total ** S) / (math.factorial(S) * (mu ** S))) * p0
 
 
@@ -30,14 +30,15 @@ def calculate_m_m_s_s_reservation(l_o, l_h, mu, S, Sc):
     Sc: próg, powyżej którego nowe połączenia są odrzucane, a kanały zostają tylko dla handoverów.
     """
     S, Sc = int(S), int(Sc)
-    # Stan systemu 0-Sc: mogą wchodzić wszyscy (nowi + handover)
+    # Stan systemu 0-Sc: mogą wchodzić wszyscy (nowi użytkownicy + handovery)
     term1 = sum([(l_o + l_h) ** i / (math.factorial(i) * mu ** i) for i in range(Sc + 1)])
-    # Stan systemu Sc+1 do S: mogą wchodzić tylko handovery
+    # Stan systemu Sc+1 do S: pasmo jest nasycone, wchodzą tylko priorytetowe handovery
     term2 = sum([((l_o + l_h) ** Sc * l_h ** (i - Sc)) / (math.factorial(i) * mu ** i) for i in range(Sc + 1, S + 1)])
 
-    p0 = 1 / (term1 + term2)  # Prawdopodobieństwo stanu zerowego
+    p0 = 1 / (term1 + term2)  # Obliczenie prawdopodobieństwa stanu zerowego (p0)
 
     probs = []
+    # Obliczanie prawdopodobieństwa dla każdego możliwego stanu zajętości kanałów
     for i in range(S + 1):
         if i <= Sc:
             p_i = ((l_o + l_h) ** i / (math.factorial(i) * mu ** i)) * p0
@@ -45,7 +46,7 @@ def calculate_m_m_s_s_reservation(l_o, l_h, mu, S, Sc):
             p_i = ((l_o + l_h) ** Sc * l_h ** (i - Sc) / (math.factorial(i) * mu ** i)) * p0
         probs.append(p_i)
 
-    # Zwraca: [P_blokady_nowych (suma od Sc wzwyż), P_blokady_handoveru (tylko stan S)]
+    # Zwraca: [P_blokady_nowych (suma stanów od Sc wzwyż), P_blokady_handoveru (tylko stan krytyczny S)]
     return sum(probs[Sc:]), probs[S]
 
 
@@ -58,29 +59,29 @@ class BaseStationSimulator:
         self.root.geometry("1300x850")
         self.root.configure(bg="#f0f0f0")
 
-        self.setup_ui()  # Tworzenie przycisków, pól tekstowych i układu
-        self.reset_sim_state()  # Inicjalizacja pustych list na dane
+        self.setup_ui()  # Inicjalizacja elementów interfejsu użytkownika
+        self.reset_sim_state()  # Przygotowanie struktur danych na start
 
     def setup_ui(self):
         """Konfiguracja kontrolek interfejsu (Tkinter)."""
-        # Panel parametrów po lewej stronie
+        # Lewy panel: Ustawienia parametrów wejściowych symulacji
         param_frame = tk.LabelFrame(self.root, text="Parametry", bg="#f0f0f0", padx=10, pady=10)
         param_frame.place(x=10, y=10, width=280, height=330)
 
-        # Słownik przechowujący zmienne sterujące symulacją
+        # Słownik przechowujący zmienne Tkinter powiązane z polami Entry
         self.vars = {
-            'S': tk.IntVar(value=10),  # Liczba kanałów radiowych
-            'Queue': tk.IntVar(value=10),  # Maksymalna liczba oczekujących w kolejce
-            'Lambda': tk.DoubleVar(value=1.0),  # Średnia liczba zgłoszeń na sekundę
-            'N': tk.DoubleVar(value=20),  # Średni czas trwania rozmowy (dla Gaussa)
-            'Sigma': tk.DoubleVar(value=5),  # Odchylenie standardowe czasu rozmowy
-            'Min': tk.DoubleVar(value=10),  # Minimalny czas rozmowy
-            'Max': tk.DoubleVar(value=30),  # Maksymalny czas rozmowy
-            'SimTime': tk.IntVar(value=30),  # Czas trwania symulacji (w jednostkach sim)
-            'Sc': tk.IntVar(value=8)  # Próg rezerwacji (opcjonalny w tej wersji)
+            'S': tk.IntVar(value=10),  # Całkowita liczba dostępnych kanałów
+            'Queue': tk.IntVar(value=10),  # Pojemność kolejki (bufor zgłoszeń)
+            'Lambda': tk.DoubleVar(value=1.0),  # Intensywność napływu zgłoszeń (Poisson)
+            'N': tk.DoubleVar(value=20),  # Średnia długość trwania obsługi (Gauss)
+            'Sigma': tk.DoubleVar(value=5),  # Odchylenie standardowe czasu obsługi
+            'Min': tk.DoubleVar(value=10),  # Minimalny czas trwania (przycięcie rozkładu)
+            'Max': tk.DoubleVar(value=30),  # Maksymalny czas trwania (przycięcie rozkładu)
+            'SimTime': tk.IntVar(value=30),  # Czas trwania całej symulacji
+            'Sc': tk.IntVar(value=8)  # Próg rezerwacji kanałów (opcjonalny)
         }
 
-        # Generowanie pól Entry w pętli dla porządku
+        # Dynamiczne generowanie etykiet i pól tekstowych dla parametrów
         labels = ["Liczba kanałów (S)", "Długość kolejki", "Lambda", "Średnia (N)",
                   "Sigma", "Min długość", "Max długość", "Czas symulacji"]
         keys = ['S', 'Queue', 'Lambda', 'N', 'Sigma', 'Min', 'Max', 'SimTime']
@@ -89,7 +90,7 @@ class BaseStationSimulator:
             tk.Label(param_frame, text=label, bg="#f0f0f0").grid(row=i, column=0, sticky="w")
             tk.Entry(param_frame, textvariable=self.vars[key], width=8).grid(row=i, column=1, sticky="e", pady=2)
 
-        # Panel do podglądu aktualnie wylosowanych wartości (X dla Poissona i Gaussa)
+        # Panel wyników "na żywo" (wylosowane wartości dla aktualnego kroku)
         stats_frame = tk.LabelFrame(self.root, text="Wyniki", bg="#f0f0f0", padx=10, pady=10)
         stats_frame.place(x=300, y=10, width=150, height=330)
 
@@ -98,18 +99,18 @@ class BaseStationSimulator:
         self.lbl_gauss_x = tk.Label(stats_frame, text="Gauss X: -", bg="#f0f0f0")
         self.lbl_gauss_x.pack(anchor="w", pady=(10, 0))
 
-        # Kontener na wizualizację kanałów (prostokąty czerwone/zielone)
+        # Kontener wizualizacji zajętości kanałów (siatka prostokątów)
         self.viz_container = tk.LabelFrame(self.root, text=" Stan Kanałów ", bg="#f0f0f0")
         self.viz_container.place(x=470, y=10, width=220, height=330)
 
-        # Kluczowa zmiana: Frame musi zajmować całą dostępną przestrzeń i pozwalać na ekspansję
+        # Ramka wewnętrzna do dynamicznej siatki kanałów (Grid)
         self.viz_frame = tk.Frame(self.viz_container, bg="#f0f0f0")
         self.viz_frame.pack(expand=True, fill="both", padx=5, pady=5)
 
-        self.channel_rects = []  # Lista przechowująca ramki kanałów
-        self.channel_labels = []  # Lista przechowująca etykiety kanałów
+        self.channel_rects = []  # Lista przechowująca obiekty Frame (tło kanału)
+        self.channel_labels = []  # Lista przechowująca etykiety tekstowe kanałów
 
-        # Tabela (Treeview) na dole wyświetlająca historię zdarzeń
+        # Dolny panel: Szczegółowa tabela zdarzeń (log systemowy)
         list_frame = tk.LabelFrame(self.root, text="Wyniki szczegółowe", bg="#f0f0f0")
         list_frame.place(x=10, y=350, width=440, height=380)
 
@@ -120,7 +121,7 @@ class BaseStationSimulator:
             self.tree.column(col, width=65)
         self.tree.pack(fill="both", expand=True)
 
-        # Przyciski sterujące i liczniki globalne
+        # Przyciski sterujące i liczniki statystyczne
         self.lbl_sim_status = tk.Label(self.root, text="Czas symulacji: 0 / 0", font=("Arial", 11, "bold"),
                                        bg="#f0f0f0")
         self.lbl_sim_status.place(x=480, y=750)
@@ -133,111 +134,111 @@ class BaseStationSimulator:
         self.lbl_rejected = tk.Label(self.root, text="Odrzucone: 0", bg="#f0f0f0")
         self.lbl_rejected.place(x=480, y=710)
 
-        self.setup_plots()  # Inicjalizacja wykresów Matplotlib
+        self.setup_plots()  # Konfiguracja osadzonych wykresów Matplotlib
 
     def setup_plots(self):
-        """Osadza wykresy Matplotlib w oknie Tkinter."""
+        """Osadza wykresy Matplotlib w oknie Tkinter przy użyciu FigureCanvasTkAgg."""
         self.plot_container = tk.Frame(self.root, bg="white")
         self.plot_container.place(x=700, y=10, width=580, height=780)
+
+        # Tworzenie trzech sub-wykresów (kolejka, czas oczekiwania, obciążenie)
         self.fig, (self.ax_q, self.ax_w, self.ax_ro) = plt.subplots(3, 1, figsize=(5, 8))
         self.fig.patch.set_facecolor('#f0f0f0')
 
-        # Inicjalizacja linii wykresów (Q - kolejka, W - czas oczekiwania, Ro - obciążenie)
+        # Inicjalizacja linii wykresów (puste listy danych na start)
         self.lines = {
             'Q': self.ax_q.plot([], [], 'r-', label='Długość kolejki (Q)')[0],
             'W': self.ax_w.plot([], [], 'b-', label='Czas oczekiwania (W)')[0],
             'Ro': self.ax_ro.plot([], [], 'g-', label='Obciążenie (Ro)')[0]
         }
+
+        # Integracja Matplotlib z Tkinter
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_container)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
     def reset_sim_state(self):
-        """Czyści dane przed startem nowej symulacji."""
+        """Czyści dane, liczniki i historię przed rozpoczęciem nowej symulacji."""
         self.sim_time = 0
         self.handled_count = 0
         self.rejected_count = 0
         self.history = {'t': [], 'Q': [], 'W': [], 'Ro': []}
-        self.queue = []  # Lista przechowująca czasy trwania rozmów w kolejce
+        self.queue = []  # Lista przechowująca czasy trwania połączeń czekających w kolejce
         for item in self.tree.get_children(): self.tree.delete(item)
 
     def start_simulation(self):
-        """Przygotowuje harmonogram zdarzeń i buduje interfejs graficzny kanałów."""
+        """Inicjuje proces symulacji: generuje zdarzenia i buduje siatkę kanałów."""
         self.reset_sim_state()
-        self.arr_ptr = 0  # Wskaźnik "którą rozmowę z listy teraz sprawdzamy"
-        self.btn_start.config(state="disabled")
+        self.arr_ptr = 0  # Indeks wskazujący na aktualnie rozpatrywane zgłoszenie z listy
+        self.btn_start.config(state="disabled")  # Blokada przycisku podczas pracy
 
         S = self.vars['S'].get()
-        # Czyszczenie wizualizacji
+        # Czyszczenie i budowanie nowej wizualizacji siatki kanałów
         for child in self.viz_frame.winfo_children(): child.destroy()
         self.channel_rects, self.channel_labels = [], []
 
-        # DYNAMICZNE SKALOWANIE SIATKI:
-        # Obliczamy liczbę kolumn jako pierwiastek z S, aby uzyskać proporcje zbliżone do kwadratu
+        # Obliczanie optymalnej liczby kolumn i wierszy dla siatki kanałów
         cols = math.ceil(math.sqrt(S))
         rows = math.ceil(S / cols)
 
-        # Konfiguracja wag wierszy i kolumn, aby wypełniały całą przestrzeń viz_frame
-        for i in range(cols):
-            self.viz_frame.grid_columnconfigure(i, weight=1)
-        for i in range(rows):
-            self.viz_frame.grid_rowconfigure(i, weight=1)
+        # Konfiguracja wag siatki (Grid) dla dynamicznego skalowania
+        for i in range(cols): self.viz_frame.grid_columnconfigure(i, weight=1)
+        for i in range(rows): self.viz_frame.grid_rowconfigure(i, weight=1)
 
+        # Tworzenie wizualnych reprezentacji kanałów (Zielony = Wolny)
         for i in range(S):
-            # Tworzenie ramki kanału, która rozciąga się (sticky="nsew")
             r = tk.Frame(self.viz_frame, bg="green", highlightbackground="white", highlightthickness=1)
             r.grid(row=i // cols, column=i % cols, sticky="nsew", padx=1, pady=1)
-
-            # Etykieta musi wypełniać ramkę
             l = tk.Label(r, text=f"{i + 1}\nWolny", bg="green", fg="white", font=("Arial", 7, "bold"))
             l.pack(expand=True, fill="both")
-
             self.channel_rects.append(r)
             self.channel_labels.append(l)
 
-        # GENEROWANIE LISTY PRZYBYĆ (Zdarzenia dyskretne)
+        # GENEROWANIE LISTY PRZYBYĆ (Zdarzenia dyskretne w czasie)
         L = self.vars['Lambda'].get()
         T_max = self.vars['SimTime'].get()
         self.arrivals = []
         curr = 0
         while curr < T_max:
-            # Rozkład wykładniczy odstępów między przyjściami = Proces Poissona
+            # Odstępy czasu między zgłoszeniami wg rozkładu wykładniczego (Proces Poissona)
             inter = np.random.exponential(1.0 / L)
             curr += inter
-            # Czas rozmowy z rozkładu Gaussa (przycięty do Min/Max)
+            # Czas trwania rozmowy wg rozkładu normalnego (Gauss) z ograniczeniami Min/Max
             dur = np.clip(np.random.normal(self.vars['N'].get(), self.vars['Sigma'].get()),
                           self.vars['Min'].get(), self.vars['Max'].get())
             self.arrivals.append({'time': curr, 'dur': dur})
 
-        # active_channels przechowuje licznik sekund do zwolnienia danego kanału
+        # Lista przechowująca pozostały czas obsługi dla każdego z S kanałów
         self.active_channels = [0.0] * S
-        self.run_step()
+        self.run_step()  # Uruchomienie pierwszego kroku symulacji
 
     def run_step(self):
         """Główna pętla taktująca symulacji (wywoływana co 100ms czasu rzeczywistego)."""
         max_time = self.vars['SimTime'].get()
+
+        # Sprawdzenie warunku zakończenia symulacji
         if self.sim_time > max_time:
             self.btn_start.config(state="normal")
-            self.save_to_file()
+            self.save_to_file()  # Zapis danych po zakończeniu
             self.lbl_sim_status.config(text=f"Czas: {max_time}/{max_time} - Koniec")
             return
 
         self.lbl_sim_status.config(text=f"Czas symulacji: {self.sim_time} / {max_time}")
 
-        # Pobranie zgłoszeń, które pojawiają się w obecnej "sekundzie" symulacji
+        # Pobranie zgłoszeń, których czas nadejścia przypada na obecną sekundę symulacji
         current_calls = [a for a in self.arrivals if self.sim_time <= a['time'] < self.sim_time + 1]
 
-        # Wyświetlanie statystyk ostatniego wylosowanego zdarzenia
+        # Aktualizacja etykiet statystyk (wyświetlanie danych ostatnio wylosowanego połączenia)
         if self.arr_ptr < len(self.arrivals):
             current_event = self.arrivals[self.arr_ptr]
             self.lbl_poisson_x.config(text=f"Poisson X: {current_event['time']:.2f}s")
             self.lbl_gauss_x.config(text=f"Gauss X: {current_event['dur']:.2f}s")
 
-        # Aktualizacja odliczania czasu w kanałach
+        # Aktualizacja czasu obsługi w kanałach (odliczanie w dół)
         for i in range(len(self.active_channels)):
             if self.active_channels[i] > 0:
                 self.active_channels[i] = max(0, self.active_channels[i] - 1)
 
-            # Wizualizacja stanu kanału
+            # Zmiana koloru kanału w zależności od zajętości (Red = Zajęty)
             if self.active_channels[i] <= 0:
                 self.channel_rects[i].config(bg="green")
                 self.channel_labels[i].config(text=f"{i + 1}\nWolny", bg="green")
@@ -245,15 +246,16 @@ class BaseStationSimulator:
                 self.channel_rects[i].config(bg="red")
                 self.channel_labels[i].config(text=f"{i + 1}\n{int(self.active_channels[i])}s", bg="red")
 
-        # Przetwarzanie nowych zgłoszeń
+        # Obsługa nowych połączeń napływających w tym kroku
         for call in current_calls:
             placed = False
+            # Szukanie pierwszego wolnego kanału
             for i in range(len(self.active_channels)):
-                if self.active_channels[i] <= 0:  # Znaleziono wolny kanał
+                if self.active_channels[i] <= 0:
                     self.active_channels[i] = call['dur']
                     self.handled_count += 1
                     placed = True
-                    # Dodanie do tabeli wyników
+                    # Rejestracja zdarzenia w tabeli GUI
                     self.tree.insert("", "end", values=(
                         f"{1 / self.vars['Lambda'].get():.2f}", f"{call['dur']:.2f}",
                         self.handled_count, f"{call['time']:.1f}", f"{call['dur']:.1f}",
@@ -261,53 +263,57 @@ class BaseStationSimulator:
                     ))
                     break
 
-            if not placed:  # Brak wolnych kanałów -> sprawdź kolejkę
+            # Jeśli brak kanałów, próba umieszczenia w kolejce
+            if not placed:
                 if len(self.queue) < self.vars['Queue'].get():
                     self.queue.append(call['dur'])
-                else:  # Kolejka pełna -> odrzucenie połączenia (blokada)
-                    self.rejected_count += 1
+                else:
+                    self.rejected_count += 1  # Blokada całkowita (kolejka pełna)
             self.arr_ptr += 1
 
-        # Przenoszenie osób z kolejki do zwolnionych kanałów
+        # Przenoszenie zgłoszeń z kolejki do kanałów zwolnionych w tym samym kroku
         for i in range(len(self.active_channels)):
             if self.active_channels[i] <= 0 and self.queue:
                 self.active_channels[i] = self.queue.pop(0)
                 self.handled_count += 1
 
-        # Obliczanie parametrów do historii wykresów
+        # Obliczanie parametrów systemu do logowania historii
         busy = sum(1 for c in self.active_channels if c > 0)
-        rho = busy / self.vars['S'].get()  # Współczynnik wykorzystania zasobów
+        rho = busy / self.vars['S'].get()  # Obciążenie systemu (współczynnik utylizacji)
         self.history['t'].append(self.sim_time)
         self.history['Ro'].append(rho)
         self.history['Q'].append(len(self.queue))
-        self.history['W'].append(
-            len(self.queue) / self.vars['Lambda'].get())  # Przybliżony czas oczekiwania (Prawa Little'a)
+        # Przybliżony czas oczekiwania (wg Prawa Little'a: W = L/lambda)
+        self.history['W'].append(len(self.queue) / self.vars['Lambda'].get())
 
+        # Odświeżanie grafiki i etykiet tekstowych
         self.update_live_plots()
         self.lbl_handled.config(text=f"Obsłużone: {self.handled_count}")
         self.lbl_rejected.config(text=f"Odrzucone: {self.rejected_count}")
 
+        # Inkrementacja czasu i planowanie kolejnego kroku (iteracja co 100ms czasu rzeczywistego)
         self.sim_time += 1
-        # Planowanie kolejnego kroku za 100ms (daje to płynną animację)
         self.root.after(100, self.run_step)
 
     def update_live_plots(self):
-        """Odświeża dane na wykresach osadzonych w GUI."""
+        """Odświeża serie danych na wykresach bez przeładowywania całych osi."""
         self.lines['Ro'].set_data(self.history['t'], self.history['Ro'])
         self.lines['Q'].set_data(self.history['t'], self.history['Q'])
         self.lines['W'].set_data(self.history['t'], self.history['W'])
+        # Automatyczne dostosowanie granic osi do nowych danych
         for ax in [self.ax_q, self.ax_w, self.ax_ro]:
             ax.relim()
             ax.autoscale_view()
-        self.canvas.draw_idle()
+        self.canvas.draw_idle()  # Nieblokujące odświeżenie płótna (canvas)
 
     def save_to_file(self):
-        """Eksportuje zebrane dane do pliku tekstowego po zakończeniu symulacji."""
-        pd.DataFrame(self.history).to_csv("wyniki_symulacji.txt", sep='\t', index=False)
+        """Eksportuje zebrane dane do pliku tekstowego (format TSV) z ograniczoną precyzją."""
+        # float_format="%.4f" zapewnia zaokrąglenie wyników do 4 miejsc po kropce
+        pd.DataFrame(self.history).to_csv("wyniki_symulacji.txt", sep='\t', index=False, float_format="%.4f")
         messagebox.showinfo("Koniec", "Symulacja zakończona. Dane zapisano do wyniki_symulacji.txt")
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = BaseStationSimulator(root)
-    root.mainloop()
+    root.mainloop()  # Uruchomienie pętli zdarzeń systemu Windows/Linux/macOS
