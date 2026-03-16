@@ -1,0 +1,76 @@
+import math
+import matplotlib.pyplot as plt
+
+
+class MojGeneratorLosowy:
+    def __init__(self, ziarno=1):
+        # Parametry generatora U(0,1) podane w instrukcji
+        self.a = 16807  # 7^5
+        self.b = 0
+        self.c = 2147483647  # 2^31 - 1
+        self.stan = ziarno
+
+    def nastepny_u01(self):
+        """Implementacja algorytmu: x_{n+1} = (ax_n + b) mod c """
+        self.stan = (self.a * self.stan + self.b) % self.c
+        return self.stan / self.c
+
+
+# --- Implementacja rozkładów zgodnie z instrukcją ---
+
+def gen_poisson(gen, lam, n):
+    """Algorytm 1 dla rozkładu Poissona [cite: 79-88]"""
+    wyniki = []
+    q = math.exp(-lam)  # Stała wyliczana raz [cite: 81]
+
+    for _ in range(n):
+        X = -1
+        S = 1.0
+        while S > q:
+            U = gen.nastepny_u01()
+            S = S * U
+            X += 1
+        wyniki.append(X)
+    return wyniki
+
+
+def gen_normalny(gen, mu, sigma, n):
+    """Metoda 2 Boxa-Mullera dla rozkładu Normalnego """
+    wyniki = []
+    pi = 3.141592653589793
+
+    for _ in range(n // 2 + 1):
+        U1 = gen.nastepny_u01()
+        U2 = gen.nastepny_u01()
+
+        # Wzory z instrukcji na X1 i X2
+        pierwiastek = math.sqrt(-2 * math.log(U1))
+        Z1 = pierwiastek * math.cos(2 * pi * U2)
+        Z2 = pierwiastek * math.sin(2 * pi * U2)
+
+        # Przesunięcie i skalowanie: N(mu, sigma) = mu + sigma * N(0,1)
+        wyniki.append(mu + sigma * Z1)
+        wyniki.append(mu + sigma * Z2)
+
+    return wyniki[:n]
+
+
+# --- Uruchomienie ---
+
+# Inicjalizacja własnego generatora 
+moj_gen = MojGeneratorLosowy(ziarno=12345)
+
+liczba_probek = 10000
+dane_p = gen_poisson(moj_gen, lam=4, n=liczba_probek)
+dane_n = gen_normalny(moj_gen, mu=10, sigma=2, n=liczba_probek)
+
+# Histogramy (wizualizacja zgodna z Zadaniem 2)
+plt.figure(figsize=(12, 5))
+plt.subplot(1, 2, 1)
+plt.hist(dane_p, bins=max(dane_p) - min(dane_p), color='green', alpha=0.7)
+plt.title("Własny Rozkład Poissona")
+
+plt.subplot(1, 2, 2)
+plt.hist(dane_n, bins=50, color='blue', alpha=0.7)
+plt.title("Własny Rozkład Normalny")
+plt.show()
