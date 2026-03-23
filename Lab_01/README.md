@@ -1,4 +1,4 @@
-Lab XX – Teoretyczne podstawy i algorytmy generowania zdarzeń (ruchu).
+Lab 01 – Teoretyczne podstawy i algorytmy generowania zdarzeń (ruchu).
 
 
 Co zostało zrealizowane
