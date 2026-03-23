@@ -1,0 +1,5 @@
+Główne powody, dla których ośmiokąt nie jest używany, mimo że wizualnie lepiej przybliża koło niż sześciokąt:
+Brak możliwości tworzenia mozaiki (tesselacji): Sześciokąty foremne mają tę właściwość, że przylegają do siebie bez żadnych przerw i nie nakładają się na siebie,całkowicie pokrywając dany obszar.
+Powstawanie "dziur" w zasięgu: Ośmiokąty foremne nie potrafią szczelnie wypełnić płaszczyzny. Przy próbie zestawienia ich obok siebie zawsze powstaną puste miejsca (w kształcie kwadratów), co w praktyce oznaczałoby obszary bez zasięgu sieci.
+Regularność odległości: Sześciokąt pozwala na zachowanie jednakowej odległości między środkiem komórki a środkami wszystkich sześciu komórek sąsiednich, co jest kluczowe dla obliczeń odległości wykorzystania częstotliwości ($D$).
+Optymalny kompromis: Sześciokąt jest najlepszym kompromisem – oferuje szczelne pokrycie terenu (podobnie jak kwadrat czy trójkąt), ale przy tym najbardziej ze wszystkich figur "płytkowych" przypomina koło, co minimalizuje różnice w sile sygnału między środkiem a krawędziami komórki.
