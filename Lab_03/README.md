@@ -1,4 +1,4 @@
-Lab XX –Modelowanie systemu (M/M/S/S)
+Lab 03 –Modelowanie systemu (M/M/S/S)
 
 Co zostało zrealizowane
 W ramach zadania zaimplementowano aplikację symulującą działanie stacji bazowej w systemie mobilnym z wykorzystaniem biblioteki Tkinter (GUI).
