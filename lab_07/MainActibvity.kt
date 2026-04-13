@@ -18,25 +18,35 @@ class MainActivity : AppCompatActivity() {
         var numran = 0
         var randlimit = 6 // Domyślny zakres (kostka)
 
-        // 2. Obsługa kliknięcia przycisku 
+        // 2. Obsługa kliknięcia przycisku )
         buttonklik.setOnClickListener {
-
-            // Pobranie wartości z pola edycyjnego
             val inputContent = maxnum.text.toString()
 
             if (inputContent.isNotEmpty()) {
-                // Konwersja tekstu na liczbę całkowitą
-                randlimit = Integer.parseInt(inputContent)
+                // 1. Najpierw parsujemy liczbę do zmiennej pomocniczej
+                val enteredValue = Integer.parseInt(inputContent)
+
+                // 2. Sprawdzamy, czy liczba jest większa od 0
+                if (enteredValue > 0) {
+                    randlimit = enteredValue
+                } else {
+                    // Jeśli wpisano 0 lub ujemną, przywracamy domyślne 6
+                    randlimit = 6
+                    // Opcjonalnie: wyczyść pole lub ustaw tekst informacyjny
+                    maxnum.setText("6")
+                    // Możesz też dodać Toast (krótka wiadomość na dole ekranu)
+                    android.widget.Toast.makeText(
+                        this,
+                        "Zakres musi być > 0! Ustawiono 6.",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
             } else {
-                randlimit = 6 // Jeśli pole jest puste, losujemy jak kostką
+                randlimit = 6
             }
 
-            // Losowanie liczby z podanego zakresu
-            // Random.nextInt(limit) losuje od 0 do limit-1, więc dodajemy +1
+            
             numran = Random.nextInt(randlimit) + 1
-
-            // Wyświetlenie wyniku na przycisku
             buttonklik.text = numran.toString()
         }
-    }
-}
+    }}
