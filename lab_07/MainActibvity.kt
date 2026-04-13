@@ -18,7 +18,7 @@ class MainActivity : AppCompatActivity() {
         var numran = 0
         var randlimit = 6 // Domyślny zakres (kostka)
 
-        // 2. Obsługa kliknięcia przycisku )
+        // 2. Obsługa kliknięcia przycisku 
         buttonklik.setOnClickListener {
 
             // Pobranie wartości z pola edycyjnego
